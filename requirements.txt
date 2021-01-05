@@ -1,0 +1,4 @@
+numpy==1.19.2
+tflite_runtime==2.5.0
+tensorflow==2.4.0
+opencv_python==4.5.1.48

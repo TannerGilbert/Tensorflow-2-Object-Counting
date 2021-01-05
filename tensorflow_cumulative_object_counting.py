@@ -126,7 +126,7 @@ def run_inference(model, category_index, cap, labels, roi_position=0.6, deviatio
         font = cv2.FONT_HERSHEY_SIMPLEX
         cv2.putText(image_np, 'Count: ' + str(counter), (10, 35), font, 0.8, (0, 0xFF, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
 
-        cv2.imshow('cummulative_object_counting', image_np)
+        cv2.imshow('cumulative_object_counting', image_np)
         if cv2.waitKey(25) & 0xFF == ord('q'):
             cap.release()
             cv2.destroyAllWindows()
