@@ -56,34 +56,34 @@ def run_inference_for_single_image(model, image):
     return output_dict
 
 
-def cumulative_counting(image, output_dict, category_index, label, roi_position, deviation, threshold, x_axis):
+def cumulative_counting(image, output_dict, category_index, labels, roi_position, deviation, threshold, x_axis):
     if x_axis:
-        return cumulative_counting_x_axis(image, output_dict, category_index, label, roi_position, deviation, threshold)
+        return cumulative_counting_x_axis(image, output_dict, category_index, labels, roi_position, deviation, threshold)
     else:
-        return cumulative_counting_y_axis(image, output_dict, category_index, label, roi_position, deviation, threshold)
+        return cumulative_counting_y_axis(image, output_dict, category_index, labels, roi_position, deviation, threshold)
 
 
-def cumulative_counting_x_axis(image, output_dict, category_index, label, roi_position, deviation, threshold):
+def cumulative_counting_x_axis(image, output_dict, category_index, labels, roi_position, deviation, threshold):
     directions = []
     for i, (y_min, x_min, y_max, x_max) in enumerate(output_dict['detection_boxes']):
-        if output_dict['detection_scores'][i] > threshold and category_index[output_dict['detection_classes'][i]]['name'] == label:
+        if output_dict['detection_scores'][i] > threshold and (labels == None or category_index[output_dict['detection_classes'][i]]['name'] in labels):
             if abs(((x_min+x_max)/2)-roi_position) < deviation:
                 directions.append(((x_min+x_max)/2)-roi_position > 0)
 
     return directions
 
 
-def cumulative_counting_y_axis(image, output_dict, category_index, label, roi_position, deviation, threshold):
+def cumulative_counting_y_axis(image, output_dict, category_index, labels, roi_position, deviation, threshold):
     directions = []
     for i, (y_min, x_min, y_max, x_max) in enumerate(output_dict['detection_boxes']):
-        if output_dict['detection_scores'][i] > threshold and category_index[output_dict['detection_classes'][i]]['name'] == label:
+        if output_dict['detection_scores'][i] > threshold and (labels == None or category_index[output_dict['detection_classes'][i]]['name'] in labels):
             if abs(((y_min+y_max)/2)-roi_position) < deviation:
                 directions.append(((y_min+y_max)/2)-roi_position > 0)
 
     return directions
 
 
-def run_inference(model, category_index, cap, label, roi_position=0.6, deviation=0.005, threshold=0.5, x_axis=True):
+def run_inference(model, category_index, cap, labels, roi_position=0.6, deviation=0.005, threshold=0.5, x_axis=True):
     counter = 0
     while cap.isOpened():
         ret, image_np = cap.read()
@@ -96,7 +96,7 @@ def run_inference(model, category_index, cap, label, roi_position=0.6, deviation
         output_dict = run_inference_for_single_image(model, image_np)
         
         # Count objects
-        directions = cumulative_counting(image_np, output_dict, category_index, label, roi_position, deviation, threshold, x_axis)
+        directions = cumulative_counting(image_np, output_dict, category_index, labels, roi_position, deviation, threshold, x_axis)
 
         # Visualization of the results of a detection.
         vis_util.visualize_boxes_and_labels_on_image_array(
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     parser.add_argument('-t', '--threshold', type=int, default=0.5, help='Detection threshold')
     parser.add_argument('-roi', '--roi_position', type=int, default=0.6, help='ROI Position (0-1)')
     parser.add_argument('-d', '--deviation', type=int, default=0.005, help='Deviation (0-1)')
-    parser.add_argument('-la', '--label', default='person', type=str, help='Label name to detect')
+    parser.add_argument('-la', '--labels', nargs='+', type=str, help='Label names to detect (default="all-labels")')
     parser.add_argument('-a', '--axis', default=True, action="store_false", help='Axis for cumulative counting (default=x axis)')
     args = parser.parse_args()
 
@@ -156,4 +156,4 @@ if __name__ == '__main__':
     if not cap.isOpened():
         print("Error opening video stream or file")
 
-    run_inference(detection_model, category_index, cap, label=args.label, threshold=args.threshold, roi_position=args.roi_position, deviation=args.deviation, x_axis=args.axis) 
+    run_inference(detection_model, category_index, cap, labels=args.labels, threshold=args.threshold, roi_position=args.roi_position, deviation=args.deviation, x_axis=args.axis) 
