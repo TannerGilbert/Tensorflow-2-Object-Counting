@@ -110,8 +110,8 @@ def run_inference(model, category_index, cap, labels, roi_position=0.6, deviatio
             line_thickness=8)
 
         # Draw ROI line
-        if len(directions) > 0:
-            counter += sum(directions)
+        if len(directions) != 0:
+            counter += len(directions)
             if x_axis:
                 cv2.line(image_np, (int(roi_position*width), 0), (int(roi_position*width), height), (0, 0xFF, 0), 5)
             else:
@@ -138,9 +138,9 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--model', type=str, required=True, help='Model Path')
     parser.add_argument('-l', '--labelmap', type=str, required=True, help='Path to Labelmap')
     parser.add_argument('-v', '--video_path', type=str, default='', help='Path to video. If None camera will be used')
-    parser.add_argument('-t', '--threshold', type=int, default=0.5, help='Detection threshold')
-    parser.add_argument('-roi', '--roi_position', type=int, default=0.6, help='ROI Position (0-1)')
-    parser.add_argument('-d', '--deviation', type=int, default=0.005, help='Deviation (0-1)')
+    parser.add_argument('-t', '--threshold', type=float, default=0.5, help='Detection threshold')
+    parser.add_argument('-roi', '--roi_position', type=float, default=0.6, help='ROI Position (0-1)')
+    parser.add_argument('-d', '--deviation', type=float, default=0.005, help='Deviation (0-1)')
     parser.add_argument('-la', '--labels', nargs='+', type=str, help='Label names to detect (default="all-labels")')
     parser.add_argument('-a', '--axis', default=True, action="store_false", help='Axis for cumulative counting (default=x axis)')
     args = parser.parse_args()

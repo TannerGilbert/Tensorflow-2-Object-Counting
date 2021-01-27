@@ -105,9 +105,9 @@ def main():
     parser.add_argument('-m', '--model', type=str, required=True, help='File path of .tflite file.')
     parser.add_argument('-l', '--labelmap', type=str, required=True, help='File path of labels file.')
     parser.add_argument('-v', '--video_path', type=str, default='', help='Path to video. If None camera will be used')
-    parser.add_argument('-t', '--threshold', type=float, default=0.5, required=False, help='Score threshold for detected objects.')
-    parser.add_argument('-roi', '--roi_position', type=int, default=0.6, help='ROI Position (0-1)')
-    parser.add_argument('-d', '--deviation', type=int, default=0.005, help='Deviation (0-1)')
+    parser.add_argument('-t', '--threshold', type=float, default=0.5, help='Detection threshold')
+    parser.add_argument('-roi', '--roi_position', type=float, default=0.6, help='ROI Position (0-1)')
+    parser.add_argument('-d', '--deviation', type=float, default=0.005, help='Deviation (0-1)')
     parser.add_argument('-la', '--labels', nargs='+', type=str, help='Label names to detect (default="all-labels")')
     parser.add_argument('-a', '--axis', default=True, action="store_false", help='Axis for cumulative counting (default=x axis)')
     parser.add_argument('-e', '--use_edgetpu', action='store_true', default=False, help='Use EdgeTPU')
@@ -155,8 +155,8 @@ def main():
             cv2.putText(image_np, display_str, (xmin,ymin), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
         
         # Draw ROI line
-        if len(directions) > 0:
-            counter += sum(directions)
+        if len(directions) != 0:
+            counter += len(directions)
             if args.axis:
                 cv2.line(image_np, (int(roi_position*width), 0), (int(roi_position*width), height), (0, 0xFF, 0), 5)
             else:
