@@ -2,7 +2,7 @@
 
 Cummulative object counting with Tensorflow 2 and Tensorflow Lite.
 
-![Cumulative counting example](doc/tflite_cumulative_object_counting.PNG)
+![Cumulative counting example](doc/cumulative_object_counting.PNG)
 
 ## Installation
 
@@ -22,7 +22,7 @@ Cummulative object counting with Tensorflow 2 and Tensorflow Lite.
 To run cumulative counting with a Tensorflow object detection model use the [`tensorflow_cumulative_object_counting.py` script](tensorflow_cumulative_object_counting.py).
 
 ```
-usage: tensorflow_cumulative_object_counting.py [-h] -m MODEL -l LABELMAP [-v VIDEO_PATH] [-t THRESHOLD] [-roi ROI_POSITION] [-d DEVIATION] [-la LABELS [LABELS ...]] [-a]
+usage: tensorflow_cumulative_object_counting.py [-h] -m MODEL -l LABELMAP [-v VIDEO_PATH] [-t THRESHOLD] [-roi ROI_POSITION] [-la LABELS [LABELS ...]] [-a] [-s SKIP_FRAMES] [-sh] [-sp SAVE_PATH]
 
 Detect objects inside webcam videostream
 
@@ -38,24 +38,27 @@ optional arguments:
                         Detection threshold
   -roi ROI_POSITION, --roi_position ROI_POSITION
                         ROI Position (0-1)
-  -d DEVIATION, --deviation DEVIATION
-                        Deviation (0-1)
   -la LABELS [LABELS ...], --labels LABELS [LABELS ...]
                         Label names to detect (default="all-labels")
   -a, --axis            Axis for cumulative counting (default=x axis)
+  -s SKIP_FRAMES, --skip_frames SKIP_FRAMES
+                        Number of frames to skip between using object detection model
+  -sh, --show           Show output
+  -sp SAVE_PATH, --save_path SAVE_PATH
+                        Path to save the output. If None output won't be saved
 ```
 
 Example:
     `python tensorflow_cumulative_object_counting.py -m model_path/saved_model -l labelmap.pbtxt -v video.mp4`
 
-![Tensorflow cumulative counting example](doc/tensorflow_cumulative_object_counting.PNG)
+![Cumulative counting example](doc/cumulative_object_counting.PNG)
 
 ## Cumulative counting with Tensorflow Lite
 
 To run cumulative counting with a Tensorflow Lite model use the [`tflite_cumulative_object_counting.py` script](tflite_cumulative_object_counting.py).
 
 ```
-usage: tflite_cumulative_object_counting.py [-h] -m MODEL -l LABELMAP [-v VIDEO_PATH] [-t THRESHOLD] [-roi ROI_POSITION] [-d DEVIATION] [-la LABELS [LABELS ...]] [-a] [-e]
+usage: tflite_cumulative_object_counting.py [-h] -m MODEL -l LABELMAP [-v VIDEO_PATH] [-t THRESHOLD] [-roi ROI_POSITION] [-la LABELS [LABELS ...]] [-a] [-e] [-s SKIP_FRAMES] [-sh] [-sp SAVE_PATH]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -66,22 +69,25 @@ optional arguments:
   -v VIDEO_PATH, --video_path VIDEO_PATH
                         Path to video. If None camera will be used (default: )
   -t THRESHOLD, --threshold THRESHOLD
-                        Score threshold for detected objects. (default: 0.5)
+                        Detection threshold (default: 0.5)
   -roi ROI_POSITION, --roi_position ROI_POSITION
                         ROI Position (0-1) (default: 0.6)
-  -d DEVIATION, --deviation DEVIATION
-                        Deviation (0-1) (default: 0.005)
   -la LABELS [LABELS ...], --labels LABELS [LABELS ...]
                         Label names to detect (default="all-labels") (default: None)
   -a, --axis            Axis for cumulative counting (default=x axis) (default: True)
   -e, --use_edgetpu     Use EdgeTPU (default: False)
+  -s SKIP_FRAMES, --skip_frames SKIP_FRAMES
+                        Number of frames to skip between using object detection model (default: 20)
+  -sh, --show           Show output (default: True)
+  -sp SAVE_PATH, --save_path SAVE_PATH
+                        Path to save the output. If None output won't be saved (default: )
 ```
 
 Example:
     `python tflite_cumulative_object_counting.py -m model.tflite -l labelmap.txt -v video.mp4`
 
-![TFLITE cumulative counting example](doc/tflite_cumulative_object_counting.PNG)
+![Cumulative counting example](doc/cumulative_object_counting.PNG)
 
 ## Inspired by / Based on
 
-This project was inspired by the [tensorflow_object_counting_api](https://github.com/ahmetozlu/tensorflow_object_counting_api) from Github user [ahmetozlu](https://github.com/ahmetozlu).
+This project was inspired [OpenCV People Counter](https://www.pyimagesearch.com/2018/08/13/opencv-people-counter/) and the [tensorflow_object_counting_api](https://github.com/ahmetozlu/tensorflow_object_counting_api).

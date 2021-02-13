@@ -4,6 +4,10 @@ import time
 import cv2
 import re
 import numpy as np
+import dlib
+
+from trackable_object import TrackableObject
+from centroidtracker import CentroidTracker
 
 
 def load_labels(path):
@@ -71,35 +75,6 @@ def make_interpreter(model_file, use_edgetpu):
         return Interpreter(model_path=model_file)
 
 
-def cumulative_counting(image, predictions, labelmap, labels, roi_position, deviation, threshold, x_axis):
-    if x_axis:
-        return cumulative_counting_x_axis(image, predictions, labelmap, labels, roi_position, deviation, threshold)
-    else:
-        return cumulative_counting_y_axis(image, predictions, labelmap, labels, roi_position, deviation, threshold)
-
-
-def cumulative_counting_x_axis(image, predictions, labelmap, labels, roi_position, deviation, threshold):
-    directions = []
-    for obj in predictions:
-        ymin, xmin, ymax, xmax = obj['bounding_box']
-        if obj['score'] > threshold and (labels == None or labelmap[obj['class_id']] in labels):
-            if abs(((xmin+xmax)/2)-roi_position) < deviation:
-                directions.append(((xmin+xmax)/2)-roi_position > 0)
-
-    return directions
-
-
-def cumulative_counting_y_axis(image, predictions, labelmap, labels, roi_position, deviation, threshold):
-    directions = []
-    for obj in predictions:
-        ymin, xmin, ymax, xmax = obj['bounding_box']
-        if obj['score'] > threshold and (labels == None or labelmap[obj['class_id']] in labels):
-            if abs(((ymin+ymax)/2)-roi_position) < deviation:
-                directions.append(((ymin+ymax)/2)-roi_position > 0)
-
-    return directions
-
-
 def main():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-m', '--model', type=str, required=True, help='File path of .tflite file.')
@@ -107,10 +82,12 @@ def main():
     parser.add_argument('-v', '--video_path', type=str, default='', help='Path to video. If None camera will be used')
     parser.add_argument('-t', '--threshold', type=float, default=0.5, help='Detection threshold')
     parser.add_argument('-roi', '--roi_position', type=float, default=0.6, help='ROI Position (0-1)')
-    parser.add_argument('-d', '--deviation', type=float, default=0.005, help='Deviation (0-1)')
     parser.add_argument('-la', '--labels', nargs='+', type=str, help='Label names to detect (default="all-labels")')
     parser.add_argument('-a', '--axis', default=True, action="store_false", help='Axis for cumulative counting (default=x axis)')
     parser.add_argument('-e', '--use_edgetpu', action='store_true', default=False, help='Use EdgeTPU')
+    parser.add_argument('-s', '--skip_frames', type=int, default=20, help='Number of frames to skip between using object detection model')
+    parser.add_argument('-sh', '--show', default=True, action="store_false", help='Show output')
+    parser.add_argument('-sp', '--save_path', type=str, default='', help= 'Path to save the output. If None output won\'t be saved')
     args = parser.parse_args()
 
     labelmap = load_labels(args.labelmap)
@@ -123,7 +100,22 @@ def main():
         cap = cv2.VideoCapture(args.video_path)
     else:
         cap = cv2.VideoCapture(0)
-    counter = 0
+
+    if not cap.isOpened():
+        print("Error opening video stream or file")
+
+    if args.save_path:
+        width = int(cap.get(3))
+        height = int(cap.get(4))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        out = cv2.VideoWriter(args.save_path, cv2.VideoWriter_fourcc('M','J','P','G'), fps, (width, height))
+    
+    counter = [0, 0, 0, 0]  # left, right, up, down
+    total_frames = 0
+
+    ct = CentroidTracker(maxDisappeared=40, maxDistance=50)
+    trackers = []
+    trackableObjects = {}
 
     while cap.isOpened():
         ret, image_np = cap.read()
@@ -131,52 +123,107 @@ def main():
             break
 
         height, width, _ = image_np.shape
+        rgb = cv2.cvtColor(image_np, cv2.COLOR_BGR2RGB)
 
-        image_pred = cv2.resize(image_np, (input_width ,input_height))
+        status = "Waiting"
+        rects = []
 
-        # Perform inference
-        results = detect_objects(interpreter, image_pred, args.threshold)
+        if total_frames % args.skip_frames == 0:
+            status = "Detecting"
+            trackers = []
 
-        # Count objects
-        directions = cumulative_counting(image_np, results, labelmap, args.labels, args.roi_position, args.deviation, args.threshold, args.axis)
+            image_pred = cv2.resize(image_np, (input_width ,input_height))
+
+            # Perform inference
+            results = detect_objects(interpreter, image_pred, args.threshold)
+
+            for obj in results:
+                y_min, x_min, y_max, x_max = obj['bounding_box']
+                if obj['score'] > args.threshold and (args.labels == None or labelmap[obj['class_id']] in args.labels):
+                    tracker = dlib.correlation_tracker()
+                    rect = dlib.rectangle(int(x_min * width), int(y_min * height), int(x_max * width), int(y_max * height))
+                    tracker.start_track(rgb, rect)
+                    trackers.append(tracker)
+        else:
+            status = "Tracking"
+            for tracker in trackers:
+                # update the tracker and grab the updated position
+                tracker.update(rgb)
+                pos = tracker.get_position()
+
+				# unpack the position object
+                x_min, y_min, x_max, y_max = int(pos.left()), int(pos.top()), int(pos.right()), int(pos.bottom())
                 
-        for idx, obj in enumerate(results):
-            # Prepare bounding box
-            ymin, xmin, ymax, xmax = obj['bounding_box']
-            xmin = int(xmin * width)
-            xmax = int(xmax * width)
-            ymin = int(ymin * height)
-            ymax = int(ymax * height)
+                # add the bounding box coordinates to the rectangles list
+                rects.append((x_min, y_min, x_max, y_max))
 
-            image_np = cv2.rectangle(image_np, (xmin, ymin), (xmax, ymax), (36,255,12), 2)
+        objects = ct.update(rects)
+                
+        for (objectID, centroid) in objects.items():
+            to = trackableObjects.get(objectID, None)
 
-            # Annotate image with label and confidence score
-            display_str = labelmap[obj['class_id']] + ": " + str(round(obj['score']*100, 2)) + "%"
-            cv2.putText(image_np, display_str, (xmin,ymin), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36,255,12), 2)
+            if to is None:
+                to = TrackableObject(objectID, centroid)
+            else:
+                if args.axis and not to.counted:
+                    x = [c[0] for c in to.centroids]
+                    direction = centroid[0] - np.mean(x)
+
+                    if centroid[0] > args.roi_position*width and direction > 0:
+                        counter[1] += 1
+                        to.counted = True
+                    elif centroid[0] < args.roi_position*width and direction < 0:
+                        counter[0] += 1
+                        to.counted = True
+                    
+                elif not args.axis and not to.counted:
+                    y = [c[1] for c in to.centroids]
+                    direction = centroid[1] - np.mean(y)
+
+                    if centroid[1] > args.roi_position*height and direction > 0:
+                        counter[3] += 1
+                        to.counted = True
+                    elif centroid[1] < args.roi_position*height and direction < 0:
+                        counter[2] += 1
+                        to.counted = True
+
+                to.centroids.append(centroid)
+
+            trackableObjects[objectID] = to
+
+            text = "ID {}".format(objectID)
+            cv2.putText(image_np, text, (centroid[0] - 10, centroid[1] - 10),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+            cv2.circle(image_np, (centroid[0], centroid[1]), 4, (255, 255, 255), -1)
         
         # Draw ROI line
-        if len(directions) != 0:
-            counter += len(directions)
-            if args.axis:
-                cv2.line(image_np, (int(roi_position*width), 0), (int(roi_position*width), height), (0, 0xFF, 0), 5)
-            else:
-                cv2.line(image_np, (0, int(roi_position*height)), (width, int(roi_position*height)), (0, 0xFF, 0), 5)
+        if args.axis:
+            cv2.line(image_np, (int(roi_position*width), 0), (int(roi_position*width), height), (0xFF, 0, 0), 5)
         else:
-            if args.axis:
-                cv2.line(image_np, (int(roi_position*width), 0), (int(roi_position*width), height), (0xFF, 0, 0), 5)
-            else:
-                cv2.line(image_np, (0, int(roi_position*height)), (width, int(roi_position*height)), (0xFF, 0, 0), 5)
+            cv2.line(image_np, (0, int(roi_position*height)), (width, int(roi_position*height)), (0xFF, 0, 0), 5)
 
-        # display count
-        cv2.putText(image_np, 'Count: ' + str(counter), (10, 35), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 0xFF, 0xFF), 2)
+        # display count and status
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        if args.axis:
+            cv2.putText(image_np, f'Left: {counter[0]}; Right: {counter[1]}', (10, 35), font, 0.8, (0, 0xFF, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
+        else:
+            cv2.putText(image_np, f'Up: {counter[2]}; Down: {counter[3]}', (10, 35), font, 0.8, (0, 0xFF, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
+        cv2.putText(image_np, 'Status: ' + status, (10, 70), font, 0.8, (0, 0xFF, 0xFF), 2, cv2.FONT_HERSHEY_SIMPLEX)
 
-        cv2.imshow('TFLITE Object Counting', image_np)
+        if args.show:
+            cv2.imshow('cumulative_object_counting', image_np)
+            if cv2.waitKey(25) & 0xFF == ord('q'):
+                break
 
-        if cv2.waitKey(25) & 0xFF == ord('q'):
-            cap.release()
-            cv2.destroyAllWindows()
-            break
-
+        if args.save_path:
+            out.write(image_np)
+        
+        total_frames += 1
+    
+    cap.release()
+    if args.save_path:
+        out.release()
+    cv2.destroyAllWindows()
 
 if __name__ == '__main__':
     main()
