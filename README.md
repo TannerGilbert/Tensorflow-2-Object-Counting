@@ -90,4 +90,4 @@ Example:
 
 ## Inspired by / Based on
 
-This project was inspired [OpenCV People Counter](https://www.pyimagesearch.com/2018/08/13/opencv-people-counter/) and the [tensorflow_object_counting_api](https://github.com/ahmetozlu/tensorflow_object_counting_api).
+This project was inspired by [OpenCV People Counter](https://www.pyimagesearch.com/2018/08/13/opencv-people-counter/) and the [tensorflow_object_counting_api](https://github.com/ahmetozlu/tensorflow_object_counting_api).

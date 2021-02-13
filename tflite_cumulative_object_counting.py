@@ -91,7 +91,6 @@ def main():
     args = parser.parse_args()
 
     labelmap = load_labels(args.labelmap)
-    roi_position = args.roi_position
     interpreter = make_interpreter(args.model, args.use_edgetpu)
     interpreter.allocate_tensors()
     _, input_height, input_width, _ = interpreter.get_input_details()[0]['shape']
@@ -198,9 +197,9 @@ def main():
         
         # Draw ROI line
         if args.axis:
-            cv2.line(image_np, (int(roi_position*width), 0), (int(roi_position*width), height), (0xFF, 0, 0), 5)
+            cv2.line(image_np, (int(args.roi_position*width), 0), (int(args.roi_position*width), height), (0xFF, 0, 0), 5)
         else:
-            cv2.line(image_np, (0, int(roi_position*height)), (width, int(roi_position*height)), (0xFF, 0, 0), 5)
+            cv2.line(image_np, (0, int(args.roi_position*height)), (width, int(args.roi_position*height)), (0xFF, 0, 0), 5)
 
         # display count and status
         font = cv2.FONT_HERSHEY_SIMPLEX
