@@ -49,9 +49,9 @@ optional arguments:
 ```
 
 Example:
-    `python tensorflow_cumulative_object_counting.py -m model_path/saved_model -l labelmap.pbtxt -v video.mp4`
+    `python tensorflow_cumulative_object_counting.py -m model_path/saved_model -l labelmap.pbtxt -v video.mp4 -a`
 
-![Cumulative counting example](doc/cumulative_object_counting.PNG)
+[![Tensorflow cumulative object counting example](doc/tensorflow_x_axis_person_counting.gif)](https://youtu.be/UN7wRNDjvSg)
 
 ## Cumulative counting with Tensorflow Lite
 
@@ -84,9 +84,9 @@ optional arguments:
 ```
 
 Example:
-    `python tflite_cumulative_object_counting.py -m model.tflite -l labelmap.txt -v video.mp4`
+    `python tflite_cumulative_object_counting.py -m model.tflite -l labelmap.txt -v video.mp4 -a`
 
-![Cumulative counting example](doc/cumulative_object_counting.PNG)
+[![TFLITE cumulative object counting example](doc/tflite_x_axis_person_counting.gif)](https://youtu.be/cqyOgifVqZs)
 
 ## Inspired by / Based on
 
