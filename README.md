@@ -58,7 +58,7 @@ Example:
 To run cumulative counting with a Tensorflow Lite model use the [`tflite_cumulative_object_counting.py` script](tflite_cumulative_object_counting.py).
 
 ```
-usage: tflite_cumulative_object_counting.py [-h] -m MODEL -l LABELMAP [-v VIDEO_PATH] [-t THRESHOLD] [-roi ROI_POSITION] [-la LABELS [LABELS ...]] [-a] [-e] [-s SKIP_FRAMES] [-sh] [-sp SAVE_PATH]
+usage: tflite_cumulative_object_counting.py [-h] -m MODEL -l LABELMAP [-v VIDEO_PATH] [-t THRESHOLD] [-roi ROI_POSITION] [-la LABELS [LABELS ...]] [-a] [-e] [-s SKIP_FRAMES] [-sh] [-sp SAVE_PATH] [--type {tensorflow,yolo,yolov3-tiny}]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -81,6 +81,8 @@ optional arguments:
   -sh, --show           Show output (default: True)
   -sp SAVE_PATH, --save_path SAVE_PATH
                         Path to save the output. If None output won't be saved (default: )
+  --type {tensorflow,yolo,yolov3-tiny}
+                        Whether the original model was a Tensorflow or YOLO model (default: tensorflow)
 ```
 
 Example:

@@ -1,4 +1,5 @@
 from tflite_runtime.interpreter import Interpreter, load_delegate
+import tensorflow as tf
 import argparse
 import time
 import cv2
@@ -38,23 +39,72 @@ def get_output_tensor(interpreter, index):
     return tensor
 
 
-def detect_objects(interpreter, image, threshold):
+def filter_boxes(box_xywh, scores, score_threshold=0.4, input_shape=[416,416]):
+    scores_max = tf.math.reduce_max(scores, axis=-1)
+
+    mask = scores_max >= score_threshold
+    class_boxes = tf.boolean_mask(box_xywh, mask)
+    pred_conf = tf.boolean_mask(scores, mask)
+    class_boxes = tf.reshape(class_boxes, [tf.shape(scores)[0], -1, tf.shape(class_boxes)[-1]])
+    pred_conf = tf.reshape(pred_conf, [tf.shape(scores)[0], -1, tf.shape(pred_conf)[-1]])
+
+    box_xy, box_wh = tf.split(class_boxes, (2, 2), axis=-1)
+
+    input_shape = tf.cast(tf.constant(input_shape), dtype=tf.float32)
+
+    box_yx = box_xy[..., ::-1]
+    box_hw = box_wh[..., ::-1]
+
+    box_mins = (box_yx - (box_hw / 2.)) / input_shape
+    box_maxes = (box_yx + (box_hw / 2.)) / input_shape
+    boxes = tf.concat([
+        box_mins[..., 0:1],  # y_min
+        box_mins[..., 1:2],  # x_min
+        box_maxes[..., 0:1],  # y_max
+        box_maxes[..., 1:2]  # x_max
+    ], axis=-1)
+    # return tf.concat([boxes, pred_conf], axis=-1)
+    return (boxes, pred_conf)
+
+
+def detect_objects(interpreter, image, threshold, model_type):
     """Returns a list of detection results, each a dictionary of object info."""
-    set_input_tensor(interpreter, image)
-    interpreter.invoke()
 
-    # Get all output details
-    boxes = get_output_tensor(interpreter, 0)
-    classes = get_output_tensor(interpreter, 1)
-    scores = get_output_tensor(interpreter, 2)
-    count = int(get_output_tensor(interpreter, 3))
+    if model_type == 'tensorflow':
+        set_input_tensor(interpreter, image)
+        interpreter.invoke()
 
+        # Get all output details
+        boxes = get_output_tensor(interpreter, 0)
+        classes = get_output_tensor(interpreter, 1)
+        scores = get_output_tensor(interpreter, 2)
+        count = int(get_output_tensor(interpreter, 3))
+    elif model_type.startswith('yolo'): 
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+        interpreter.set_tensor(input_details[0]['index'], np.asarray([image / 255.]).astype(np.float32))
+        interpreter.invoke()
+        pred = [interpreter.get_tensor(output_details[i]['index']) for i in range(len(output_details))]
+        if model_type == 'yolo':
+            boxes, pred_conf = filter_boxes(pred[0], pred[1], score_threshold=0.25)
+        elif model_type == 'yolov3-tiny':
+            boxes, pred_conf = filter_boxes(pred[1], pred[0], score_threshold=0.25)
+        boxes, scores, classes, count = tf.image.combined_non_max_suppression(
+            boxes=tf.reshape(boxes, (tf.shape(boxes)[0], -1, 1, 4)),
+            scores=tf.reshape(
+                pred_conf, (tf.shape(pred_conf)[0], -1, tf.shape(pred_conf)[-1])),
+            max_output_size_per_class=50,
+            max_total_size=50,
+            score_threshold=threshold
+        )
+        boxes, scores, classes, count = boxes.numpy()[0], scores.numpy()[0], classes.numpy()[0], count.numpy()[0]
+    
     results = []
     for i in range(count):
         if scores[i] >= threshold:
             result = {
                 'bounding_box': boxes[i],
-                'class_id': classes[i],
+                'class_id': int(classes[i]),
                 'score': scores[i]
             }
             results.append(result)
@@ -88,6 +138,7 @@ def main():
     parser.add_argument('-s', '--skip_frames', type=int, default=20, help='Number of frames to skip between using object detection model')
     parser.add_argument('-sh', '--show', default=True, action="store_false", help='Show output')
     parser.add_argument('-sp', '--save_path', type=str, default='', help= 'Path to save the output. If None output won\'t be saved')
+    parser.add_argument('--type', choices=['tensorflow', 'yolo', 'yolov3-tiny'], default='tensorflow', help='Whether the original model was a Tensorflow or YOLO model')
     args = parser.parse_args()
 
     labelmap = load_labels(args.labelmap)
@@ -134,7 +185,7 @@ def main():
             image_pred = cv2.resize(image_np, (input_width ,input_height))
 
             # Perform inference
-            results = detect_objects(interpreter, image_pred, args.threshold)
+            results = detect_objects(interpreter, image_pred, args.threshold, args.type)
 
             for obj in results:
                 y_min, x_min, y_max, x_max = obj['bounding_box']
@@ -152,9 +203,10 @@ def main():
 
 				# unpack the position object
                 x_min, y_min, x_max, y_max = int(pos.left()), int(pos.top()), int(pos.right()), int(pos.bottom())
-                
-                # add the bounding box coordinates to the rectangles list
-                rects.append((x_min, y_min, x_max, y_max))
+
+                if x_min < width and x_max < width and y_min < height and y_max < height and x_min > 0 and x_max > 0 and y_min > 0 and y_max > 0:
+                    # add the bounding box coordinates to the rectangles list
+                    rects.append((x_min, y_min, x_max, y_max))
 
         objects = ct.update(rects)
                 

@@ -3,8 +3,6 @@ import cv2
 import numpy as np
 import argparse
 import tensorflow as tf
-physical_devices = tf.config.experimental.list_physical_devices("GPU")
-tf.config.experimental.set_memory_growth(physical_devices[0], True)
 import dlib
 
 from object_detection.utils import visualization_utils as vis_util
